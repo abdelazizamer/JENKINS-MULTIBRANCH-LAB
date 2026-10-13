@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME = 'node-hello-nti'
+        APP_NAME = 'new-app'
     }
 
     stages {
@@ -10,7 +10,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker build -t ${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER} .
+                        docker build -t ${APP_NAME}:${BUILD_NUMBER} .
                     """
                 }
             }
@@ -20,11 +20,14 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh """
-                            echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                            docker tag ${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER} ${DOCKER_USERNAME}/${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER}
-                            docker push ${DOCKER_USERNAME}/${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER}
-                        """
+                        // استخدام retry لإعادة المحاولة تلقائياً لو حصل Timeout في النت
+                        retry(3) {
+                            sh """
+                                echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                                docker tag ${APP_NAME}:${BUILD_NUMBER} ${DOCKER_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
+                                docker push ${DOCKER_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
+                            """
+                        }
                     }
                 }
             }
@@ -33,23 +36,21 @@ pipeline {
         stage('Run Docker Container') {
             steps {
                 script {
-                    // تحديد بورت مختلف لكل فرع عشان ميبحصلش تضارب
-                    def port = 5002
+                    def port = 5000
                     if (env.BRANCH_NAME == 'stg') {
-                        port = 5003
+                        port = 5001
                     } else if (env.BRANCH_NAME == 'pro') {
-                        port = 5004
+                        port = 5002
                     }
 
                     sh """
                         docker stop "${APP_NAME}-${env.BRANCH_NAME}-running" || true
                         docker rm "${APP_NAME}-${env.BRANCH_NAME}-running" || true
-                        
-                        docker run -d -p ${port}:5000 --name "${APP_NAME}-${env.BRANCH_NAME}-running" ${DOCKER_USERNAME}/${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER}
+                        docker run -d -p ${port}:5000 --name "${APP_NAME}-${env.BRANCH_NAME}-running" ${DOCKER_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
                         docker ps
                     """
                 }
             }
         }
     }
-}
+}   
