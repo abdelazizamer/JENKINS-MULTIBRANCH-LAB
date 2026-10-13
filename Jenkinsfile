@@ -2,22 +2,15 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME = 'new-app'
-        REPO_URL = "https://github.com/MohamedMagdy840/jenkins-repo.git"
+        APP_NAME = 'node-hello-nti'
     }
 
     stages {
-        stage('Getting Repo files') {
-            steps {
-                git branch: "${env.BRANCH_NAME}", credentialsId: 'github', url: "${REPO_URL}"
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 script {
                     sh """
-                        docker build -t ${APP_NAME}:${BUILD_NUMBER} .
+                        docker build -t ${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER} .
                     """
                 }
             }
@@ -29,8 +22,8 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         sh """
                             echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                            docker tag ${APP_NAME}:${BUILD_NUMBER} ${DOCKER_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
-                            docker push ${DOCKER_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
+                            docker tag ${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER} ${DOCKER_USERNAME}/${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER}
+                            docker push ${DOCKER_USERNAME}/${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER}
                         """
                     }
                 }
@@ -40,8 +33,19 @@ pipeline {
         stage('Run Docker Container') {
             steps {
                 script {
+                    // تحديد بورت مختلف لكل فرع عشان ميبحصلش تضارب
+                    def port = 5002
+                    if (env.BRANCH_NAME == 'stg') {
+                        port = 5003
+                    } else if (env.BRANCH_NAME == 'pro') {
+                        port = 5004
+                    }
+
                     sh """
-                        docker run -p 5000:5000 --name "${APP_NAME}-${env.BRANCH_NAME}-${BUILD_NUMBER}" -d ${APP_NAME}:${BUILD_NUMBER}
+                        docker stop "${APP_NAME}-${env.BRANCH_NAME}-running" || true
+                        docker rm "${APP_NAME}-${env.BRANCH_NAME}-running" || true
+                        
+                        docker run -d -p ${port}:5000 --name "${APP_NAME}-${env.BRANCH_NAME}-running" ${DOCKER_USERNAME}/${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER}
                         docker ps
                     """
                 }
