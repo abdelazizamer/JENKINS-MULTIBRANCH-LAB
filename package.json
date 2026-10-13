@@ -1,0 +1,12 @@
+{
+  "name": "node-multibranch-app",
+  "version": "1.0.0",
+  "description": "Node.js app for Jenkins multibranch pipeline",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
