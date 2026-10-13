@@ -24,7 +24,7 @@ pipeline {
                             sh """
                                 echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
                                 docker tag ${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER} ${DOCKER_USERNAME}/${APP_NAME}:${env.BRANCH_NAME}-${BUILD_NUMBER}
-                                docker push ${DOCKER_USERNAME}/${APP_NAME}:${BUILD_NUMBER}
+                                docker push ${DOCKER_USERNAME}/${APP_NAME}-${BUILD_NUMBER}
                             """
                         }
                     }
